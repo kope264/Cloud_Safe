@@ -6,11 +6,15 @@ const HomePage = () => {
   return (
     <div className="home-container">
       <nav className="navbar">
-        <div className="logo">BlockStore</div>
+      <div className="logo">
+  <img src="/vite2.svg" alt="Logo" className="logo-img" />
+  BlockSafe
+</div>
+
         <div className="nav-links">
           <Link to="/about" className="nav-link">About</Link>
-          <Link to="/features" className="nav-link">Features</Link>
-          <Link to="/pricing" className="nav-link">Pricing</Link>
+          {/* <Link to="/features" className="nav-link">Features</Link>
+          <Link to="/pricing" className="nav-link">Pricing</Link> */}
           <div className="auth-buttons">
             <Link to="/login" className="login-btn">Login</Link>
             <Link to="/signup" className="signup-btn">Sign Up</Link>

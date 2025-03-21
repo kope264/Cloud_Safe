@@ -6,6 +6,13 @@
     overflow-x: hidden;
     position: relative;
   }
+
+  .logo-img {
+    width: 40px; /* Adjust size */
+    height: auto;
+    margin-right: 8px;
+  }
+  
   
   /* Navbar Styles */
   .navbar {
@@ -21,8 +28,8 @@
   }
   
   .logo {
-    font-size: 1.8rem;
-    font-weight: 700;
+    font-size: 2rem;
+    font-weight: 900;
     color: #1a56db;
   }
   
