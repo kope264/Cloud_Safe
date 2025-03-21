@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import HomePage from './Components/Home';
 import LoginPage from './Components/LoginPage';
 import SignupPage from './Components/SignUp';
+import Dashboard from './Components/Dashboard';
 
 function App() {
   return (
@@ -11,6 +12,10 @@ function App() {
         <Route path="/" element={<HomePage />} />
          <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        
+
+// Inside your Routes component
+<Route path="/dashboard" element={<Dashboard />} />
         {/* Add more routes as needed */}
         {/*  <Route path="/about" element={<div>About Page</div>} />
         <Route path="/features" element={<div>Features Page</div>} />
