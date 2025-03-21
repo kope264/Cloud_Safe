@@ -14,7 +14,7 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         
 
-// Inside your Routes component
+
 <Route path="/dashboard" element={<Dashboard />} />
         {/* Add more routes as needed */}
         {/*  <Route path="/about" element={<div>About Page</div>} />

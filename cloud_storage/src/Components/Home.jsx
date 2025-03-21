@@ -12,7 +12,7 @@ const HomePage = () => {
 </div>
 
         <div className="nav-links">
-          <Link to="/about" className="nav-link">About</Link>
+          {/* <Link to="/about" className="nav-link">About</Link> */}
           {/* <Link to="/features" className="nav-link">Features</Link>
           <Link to="/pricing" className="nav-link">Pricing</Link> */}
           <div className="auth-buttons">
@@ -37,12 +37,12 @@ const HomePage = () => {
           </div>
         </div>
         <div className="hero-image">
-          <img src="/api/placeholder/500/400" alt="Decentralized storage illustration" />
+          <img src="/security.svg" alt="Decentralized storage illustration" />
         </div>
       </div>
 
       <div className="features-section">
-        <h2>Why Choose BlockStore?</h2>
+        <h2>Why Choose BlockSafe?</h2>
         <div className="feature-cards">
           <div className="feature-card">
             <h3>Decentralized</h3>
@@ -61,7 +61,7 @@ const HomePage = () => {
 
       <footer className="footer">
         <div className="footer-content">
-          <div className="footer-logo">BlockStore</div>
+          <div className="footer-logo">BlockSafe</div>
           <div className="footer-links">
             <Link to="/terms">Terms</Link>
             <Link to="/privacy">Privacy</Link>
