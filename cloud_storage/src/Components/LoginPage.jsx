@@ -1,43 +1,60 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import './LoginPage.css';
+import { Link, useNavigate } from 'react-router-dom';
+import '../Components/LoginPage.css';
 
 const LoginPage = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    
-    if (!username || !password) {
-      setError('Please fill in all fields');
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-    
+  const LoginData = async () => {
     try {
-      // Connect to your authentication service here
-      // const response = await loginService.login(username, password);
-      
-      // For demonstration purposes
-      console.log('Logging in with:', { username, password });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Redirect to dashboard on success
-      window.location.href = '/dashboard';
-    } catch (err) {
-      setError('Invalid username or password. Please try again.');
-    } finally {
-      setLoading(false);
+      console.warn('Logging in with:', email, password);
+
+      const response = await fetch('http://127.0.0.1:5000/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+      console.log('API Response:', response, result);
+
+      // if (!response.ok) {
+      //   throw new Error(result.message || 'Login failed');
+      // }
+
+      // Store user data and token in localStorage
+      localStorage.setItem('user', JSON.stringify(result));
+
+      // Redirect to dashboard
+      navigate('/dashboard');
+    } catch (e) {
+      console.error('Error:', e.message);
+      setError(e.message);
     }
   };
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMessage('');
+
+    await LoginData();
+    setLoading(false);
+  };
   return (
     <div className="login-container">
       <div className="login-card">
@@ -45,22 +62,23 @@ const LoginPage = () => {
           <h1>Welcome Back</h1>
           <p>Login to access your secure storage</p>
         </div>
-        
+
         {error && <div className="error-message">{error}</div>}
-        
+        {message && <div className="success-message">{message}</div>}
+
         <form onSubmit={handleLogin} className="login-form">
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="email">Email</label>
             <input
-              type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
               required
             />
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
@@ -72,27 +90,13 @@ const LoginPage = () => {
               required
             />
           </div>
-          
-          <div className="forgot-password">
-            <Link to="/forgot-password">Forgot password?</Link>
-          </div>
-          
-          <button 
-            type="submit" 
-            className="login-button"
-            disabled={loading}
-          >
+
+          <button type="submit" className="login-button" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-        
         <div className="signup-prompt">
           <p>Don't have an account? <Link to="/signup">Sign up</Link></p>
-        </div>
-        
-        <div className="wallet-login">
-          <p>Or connect with your wallet</p>
-          <button className="wallet-button">Connect Wallet</button>
         </div>
       </div>
     </div>

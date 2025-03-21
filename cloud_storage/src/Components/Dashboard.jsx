@@ -1,142 +1,180 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './Dashboard.css';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import "./Dashboard.css";
+
+const pinataApiKey = ""; // Replace with your API Key
+const pinataSecretApiKey = ""; // Replace with your Secret Key
 
 const Dashboard = () => {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState("");
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
-  const [currentPath, setCurrentPath] = useState('/');
+  const [currentPath, setCurrentPath] = useState("/");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderName, setNewFolderName] = useState("");
   const [fileToUpload, setFileToUpload] = useState(null);
-  const [shareEmail, setShareEmail] = useState('');
-  
+  const [shareEmail, setShareEmail] = useState("");
+
   const navigate = useNavigate();
 
-  // Mock data - replace with actual API calls to your blockchain storage
+  // Initialize with mock data
   useEffect(() => {
     // Get user info from localStorage or session
-    const user = JSON.parse(localStorage.getItem('user')) || { username: 'User' };
+    const user = JSON.parse(localStorage.getItem("user")) || { username: "User" };
     setUsername(user.username);
-    
-    // Mock files data - replace with actual blockchain data fetch
-    setFiles([
-      { id: '1', name: 'document.pdf', type: 'pdf', size: '2.5 MB', modified: '2025-03-20', path: '/', hash: '0x1a2b3c...' },
-      { id: '2', name: 'image.jpg', type: 'jpg', size: '1.8 MB', modified: '2025-03-18', path: '/', hash: '0x4d5e6f...' },
-      { id: '3', name: 'contract.sol', type: 'sol', size: '0.5 MB', modified: '2025-03-15', path: '/', hash: '0x7g8h9i...' }
-    ]);
-    
-    setFolders([
-      { id: '1', name: 'Documents', path: '/', created: '2025-03-10' },
-      { id: '2', name: 'Images', path: '/', created: '2025-03-12' }
-    ]);
+
+    // Load folders from localStorage if available
+    const savedFolders = JSON.parse(localStorage.getItem("folders")) || [
+      { id: "1", name: "Documents", path: "/", created: "2025-03-10" },
+      { id: "2", name: "Images", path: "/", created: "2025-03-12" },
+    ];
+    setFolders(savedFolders);
+
+    // Load files from localStorage if available
+    const savedFiles = JSON.parse(localStorage.getItem("files")) || [];
+    setFiles(savedFiles);
   }, []);
 
+  // Save files and folders to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem("files", JSON.stringify(files));
+    localStorage.setItem("folders", JSON.stringify(folders));
+  }, [files, folders]);
+
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
+    localStorage.removeItem("user");
+    navigate("/login");
   };
 
-  const handleFileUpload = () => {
-    if (!fileToUpload) return;
-    
-    // Here you would integrate with IPFS and your blockchain contract
-    // to upload and store the file
-    console.log('Uploading file:', fileToUpload);
-    
-    // Mock implementation - add file to list
-    const newFile = {
-      id: Date.now().toString(),
+  const handleFileChange = (event) => {
+    setFileToUpload(event.target.files[0]);
+  };
+
+  const handleFileUpload = async () => {
+    if (!fileToUpload) {
+      alert("Please select a file to upload.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileToUpload);
+
+    const pinataMetadata = JSON.stringify({
       name: fileToUpload.name,
-      type: fileToUpload.name.split('.').pop(),
-      size: `${(fileToUpload.size / (1024 * 1024)).toFixed(2)} MB`,
-      modified: new Date().toISOString().split('T')[0],
-      path: currentPath,
-      hash: `0x${Math.random().toString(16).substring(2, 10)}...`
-    };
-    
-    setFiles([...files, newFile]);
-    setFileToUpload(null);
-    setIsUploadModalOpen(false);
+      keyvalues: {
+        path: currentPath
+      }
+    });
+    formData.append("pinataMetadata", pinataMetadata);
+
+    const pinataOptions = JSON.stringify({
+      cidVersion: 1,
+    });
+    formData.append("pinataOptions", pinataOptions);
+
+    try {
+      const response = await axios.post(
+        "https://api.pinata.cloud/pinning/pinFileToIPFS",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            pinata_api_key: pinataApiKey,
+            pinata_secret_api_key: pinataSecretApiKey,
+          },
+        }
+      );
+
+      const ipfsHash = response.data.IpfsHash;
+      console.log("File uploaded to IPFS:", ipfsHash);
+
+      // Add the new file to the list
+      const newFile = {
+        id: Date.now().toString(),
+        name: fileToUpload.name,
+        type: fileToUpload.name.split(".").pop(),
+        size: `${(fileToUpload.size / (1024 * 1024)).toFixed(2)} MB`,
+        modified: new Date().toISOString().split("T")[0],
+        path: currentPath,
+        hash: ipfsHash,
+      };
+
+      setFiles([...files, newFile]);
+      setFileToUpload(null);
+      setIsUploadModalOpen(false);
+    } catch (error) {
+      console.error("IPFS upload error:", error);
+      alert("Failed to upload file to IPFS");
+    }
   };
 
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return;
-    
-    // Here you would integrate with your blockchain contract to create a folder
-    console.log('Creating folder:', newFolderName);
-    
-    // Mock implementation - add folder to list
+
+    // Create a new folder
     const newFolder = {
       id: Date.now().toString(),
       name: newFolderName,
       path: currentPath,
-      created: new Date().toISOString().split('T')[0]
+      created: new Date().toISOString().split("T")[0],
     };
-    
+
     setFolders([...folders, newFolder]);
-    setNewFolderName('');
+    setNewFolderName("");
     setIsCreateFolderModalOpen(false);
   };
 
   const handleViewFile = (file) => {
-    // Here you would fetch the file from IPFS using the hash stored in your blockchain
-    console.log('Viewing file:', file);
-    
-    // Open file in new tab or preview component
-    alert(`Viewing ${file.name} with hash ${file.hash}`);
+    const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${file.hash}`;
+    window.open(ipfsUrl, "_blank");
   };
 
   const handleShareFile = () => {
     if (!selectedFile || !shareEmail.trim()) return;
-    
-    // Here you would integrate with your blockchain contract to share access
-    console.log('Sharing file:', selectedFile, 'with:', shareEmail);
-    
-    // Mock implementation - show success message
+
+    // In a real app, this would integrate with your blockchain contract to share access
+    // For now, just show a success message
     alert(`File ${selectedFile.name} shared with ${shareEmail}`);
-    setShareEmail('');
+    setShareEmail("");
     setSelectedFile(null);
     setIsShareModalOpen(false);
   };
 
   const handleDeleteFile = (file) => {
-    // Here you would integrate with your blockchain contract to delete the file reference
-    console.log('Deleting file:', file);
-    
-    // Mock implementation - remove file from list
-    const updatedFiles = files.filter(f => f.id !== file.id);
+    // In a production app, you might want to unpin from Pinata
+    // For now, just remove from the local list
+    const updatedFiles = files.filter((f) => f.id !== file.id);
     setFiles(updatedFiles);
   };
 
   const handleDeleteFolder = (folder) => {
-    // Here you would integrate with your blockchain contract to delete the folder
-    console.log('Deleting folder:', folder);
-    
-    // Mock implementation - remove folder from list
-    const updatedFolders = folders.filter(f => f.id !== folder.id);
+    // Remove folder from list
+    const updatedFolders = folders.filter((f) => f.id !== folder.id);
     setFolders(updatedFolders);
   };
 
   const openFolder = (folder) => {
     // Navigate to folder
     setCurrentPath(`${currentPath}${folder.name}/`);
-    
-    // In a real implementation, you would fetch files/folders for this path
-    console.log('Opening folder:', folder);
   };
 
   const navigateUp = () => {
-    if (currentPath === '/') return;
-    
+    if (currentPath === "/") return;
+
     // Remove the last folder from the path
-    const newPath = currentPath.split('/').slice(0, -2).join('/') + '/';
+    const newPath = currentPath.split("/").slice(0, -2).join("/") + "/";
     setCurrentPath(newPath);
   };
+
+  // Calculate total storage used
+  const totalStorageUsed = files.reduce((total, file) => {
+    const sizeInMB = parseFloat(file.size);
+    return total + (isNaN(sizeInMB) ? 0 : sizeInMB);
+  }, 0);
 
   return (
     <div className="dashboard-container">
@@ -144,20 +182,25 @@ const Dashboard = () => {
         <div className="logo">BlockStore</div>
         <div className="user-info">
           <span>Welcome, {username}</span>
-          <button className="logout-btn" onClick={handleLogout}>Logout</button>
+          <button className="logout-btn" onClick={handleLogout}>
+            Logout
+          </button>
         </div>
       </header>
-      
+
       <div className="dashboard-content">
         <div className="sidebar">
           <div className="storage-info">
             <h3>Storage</h3>
             <div className="storage-bar">
-              <div className="storage-used" style={{width: '35%'}}></div>
+              <div
+                className="storage-used"
+                style={{ width: `${Math.min((totalStorageUsed / 15) * 100, 100)}%` }}
+              ></div>
             </div>
-            <p>4.8 GB / 15 GB used</p>
+            <p>{totalStorageUsed.toFixed(2)} MB / 15 GB used</p>
           </div>
-          
+
           <nav className="sidebar-nav">
             <ul>
               <li className="active">My Files</li>
@@ -168,47 +211,67 @@ const Dashboard = () => {
             </ul>
           </nav>
         </div>
-        
+
         <main className="content-area">
           <div className="actions-bar">
             <div className="path-navigation">
-              <button className="nav-btn" onClick={navigateUp} disabled={currentPath === '/'}>
+              <button
+                className="nav-btn"
+                onClick={navigateUp}
+                disabled={currentPath === "/"}
+              >
                 &#8593; Up
               </button>
               <span className="current-path">{currentPath}</span>
             </div>
             <div className="action-buttons">
-              <button className="action-btn upload" onClick={() => setIsUploadModalOpen(true)}>
+              <button
+                className="action-btn upload"
+                onClick={() => setIsUploadModalOpen(true)}
+              >
                 Upload File
               </button>
-              <button className="action-btn create-folder" onClick={() => setIsCreateFolderModalOpen(true)}>
+              <button
+                className="action-btn create-folder"
+                onClick={() => setIsCreateFolderModalOpen(true)}
+              >
                 Create Folder
               </button>
             </div>
           </div>
-          
+
           <div className="files-container">
             <h2>Folders</h2>
-            {folders.length > 0 ? (
+            {folders.filter((folder) => folder.path === currentPath).length > 0 ? (
               <div className="folders-grid">
-                {folders.filter(folder => folder.path === currentPath).map(folder => (
-                  <div className="folder-item" key={folder.id}>
-                    <div className="folder-icon" onClick={() => openFolder(folder)}>📁</div>
-                    <div className="folder-name">{folder.name}</div>
-                    <div className="folder-actions">
-                      <button className="item-action delete" onClick={() => handleDeleteFolder(folder)}>
-                        Delete
-                      </button>
+                {folders
+                  .filter((folder) => folder.path === currentPath)
+                  .map((folder) => (
+                    <div className="folder-item" key={folder.id}>
+                      <div
+                        className="folder-icon"
+                        onClick={() => openFolder(folder)}
+                      >
+                        📁
+                      </div>
+                      <div className="folder-name">{folder.name}</div>
+                      <div className="folder-actions">
+                        <button
+                          className="item-action delete"
+                          onClick={() => handleDeleteFolder(folder)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             ) : (
               <p className="no-items">No folders found</p>
             )}
-            
+
             <h2>Files</h2>
-            {files.length > 0 ? (
+            {files.filter((file) => file.path === currentPath).length > 0 ? (
               <div className="files-table-container">
                 <table className="files-table">
                   <thead>
@@ -220,38 +283,49 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {files.filter(file => file.path === currentPath).map(file => (
-                      <tr key={file.id}>
-                        <td className="file-name">
-                          <span className="file-icon">
-                            {file.type === 'pdf' && '📄'}
-                            {file.type === 'jpg' && '🖼️'}
-                            {file.type === 'sol' && '📝'}
-                            {!['pdf', 'jpg', 'sol'].includes(file.type) && '📄'}
-                          </span>
-                          {file.name}
-                        </td>
-                        <td>{file.size}</td>
-                        <td>{file.modified}</td>
-                        <td className="file-actions">
-                          <button className="item-action view" onClick={() => handleViewFile(file)}>
-                            View
-                          </button>
-                          <button 
-                            className="item-action share" 
-                            onClick={() => {
-                              setSelectedFile(file);
-                              setIsShareModalOpen(true);
-                            }}
-                          >
-                            Share
-                          </button>
-                          <button className="item-action delete" onClick={() => handleDeleteFile(file)}>
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {files
+                      .filter((file) => file.path === currentPath)
+                      .map((file) => (
+                        <tr key={file.id}>
+                          <td className="file-name">
+                            <span className="file-icon">
+                              {file.type === "pdf" && "📄"}
+                              {file.type === "jpg" && "🖼️"}
+                              {file.type === "png" && "🖼️"}
+                              {file.type === "sol" && "📝"}
+                              {!["pdf", "jpg", "png", "sol"].includes(
+                                file.type
+                              ) && "📄"}
+                            </span>
+                            {file.name}
+                          </td>
+                          <td>{file.size}</td>
+                          <td>{file.modified}</td>
+                          <td className="file-actions">
+                            <button
+                              className="item-action view"
+                              onClick={() => handleViewFile(file)}
+                            >
+                              View
+                            </button>
+                            <button
+                              className="item-action share"
+                              onClick={() => {
+                                setSelectedFile(file);
+                                setIsShareModalOpen(true);
+                              }}
+                            >
+                              Share
+                            </button>
+                            <button
+                              className="item-action delete"
+                              onClick={() => handleDeleteFile(file)}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -261,59 +335,64 @@ const Dashboard = () => {
           </div>
         </main>
       </div>
-      
+
       {/* Upload File Modal */}
       {isUploadModalOpen && (
         <div className="modal-overlay">
           <div className="modal">
-            <h2>Upload File</h2>
+            <h2>Upload File to IPFS</h2>
             <div className="modal-content">
-              <input 
-                type="file" 
-                onChange={(e) => setFileToUpload(e.target.files[0])} 
-              />
+              <input type="file" onChange={handleFileChange} />
               {fileToUpload && (
                 <div className="file-info">
                   <p>Name: {fileToUpload.name}</p>
-                  <p>Size: {(fileToUpload.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  <p>
+                    Size: {(fileToUpload.size / (1024 * 1024)).toFixed(2)} MB
+                  </p>
                 </div>
               )}
             </div>
             <div className="modal-actions">
-              <button className="modal-btn cancel" onClick={() => setIsUploadModalOpen(false)}>
+              <button
+                className="modal-btn cancel"
+                onClick={() => setIsUploadModalOpen(false)}
+              >
                 Cancel
               </button>
-              <button 
-                className="modal-btn upload" 
+              <button
+                className="modal-btn upload"
                 onClick={handleFileUpload}
                 disabled={!fileToUpload}
               >
-                Upload
+                Upload to IPFS
               </button>
             </div>
           </div>
         </div>
       )}
-      
+
       {/* Create Folder Modal */}
       {isCreateFolderModalOpen && (
         <div className="modal-overlay">
           <div className="modal">
             <h2>Create New Folder</h2>
             <div className="modal-content">
-              <input 
-                type="text" 
-                placeholder="Folder Name" 
+              <input
+                type="text"
+                placeholder="Folder Name"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
               />
             </div>
             <div className="modal-actions">
-              <button className="modal-btn cancel" onClick={() => setIsCreateFolderModalOpen(false)}>
+              <button
+                className="modal-btn cancel"
+                onClick={() => setIsCreateFolderModalOpen(false)}
+              >
                 Cancel
               </button>
-              <button 
-                className="modal-btn create" 
+              <button
+                className="modal-btn create"
                 onClick={handleCreateFolder}
                 disabled={!newFolderName.trim()}
               >
@@ -323,27 +402,33 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-      
+
       {/* Share File Modal */}
       {isShareModalOpen && selectedFile && (
         <div className="modal-overlay">
           <div className="modal">
             <h2>Share File</h2>
             <div className="modal-content">
-              <p>Sharing: <strong>{selectedFile.name}</strong></p>
-              <input 
-                type="email" 
-                placeholder="Enter recipient's email" 
+              <p>
+                Sharing: <strong>{selectedFile.name}</strong>
+              </p>
+              <p>IPFS Hash: {selectedFile.hash}</p>
+              <input
+                type="email"
+                placeholder="Enter recipient's email"
                 value={shareEmail}
                 onChange={(e) => setShareEmail(e.target.value)}
               />
             </div>
             <div className="modal-actions">
-              <button className="modal-btn cancel" onClick={() => setIsShareModalOpen(false)}>
+              <button
+                className="modal-btn cancel"
+                onClick={() => setIsShareModalOpen(false)}
+              >
                 Cancel
               </button>
-              <button 
-                className="modal-btn share" 
+              <button
+                className="modal-btn share"
                 onClick={handleShareFile}
                 disabled={!shareEmail.trim()}
               >
@@ -358,3 +443,19 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
