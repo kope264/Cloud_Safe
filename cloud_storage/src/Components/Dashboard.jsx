@@ -173,6 +173,7 @@ const Dashboard = () => {
               <li>Recent</li>
               <li>Favorites</li>
               <li>Trash</li>
+             
             </ul>
           </nav>
         </div>
