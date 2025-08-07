@@ -514,15 +514,7 @@ const Dashboard = () => {
               )}
             </div>
           </div>
-          {/* File Upload Section */}
-        <div style={{ marginTop: "30px" }}>
-          <FileUpload />
-        </div>
-
-        {/* File List Section */}
-        <div style={{ marginTop: "40px" }}>
-          <FileList />
-        </div>
+    
 
           <div className="files-container">
             {showFolders && (
