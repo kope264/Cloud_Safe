@@ -3,8 +3,6 @@ import axios from "axios";
 import { useUser, SignOutButton } from "@clerk/clerk-react";
 import { UserButton, UserProfile } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
-import FileUpload from "./FileUpload";
-import FileList from "./FileList";
 import "./Dashboard.css"; // Make sure this exists and includes custom styling
 
 
