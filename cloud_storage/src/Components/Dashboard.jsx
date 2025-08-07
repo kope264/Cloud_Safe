@@ -1,11 +1,19 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import "./Dashboard.css";
+import { useUser, SignOutButton } from "@clerk/clerk-react";
+import { UserButton, UserProfile } from "@clerk/clerk-react";
+import { useNavigate } from "react-router-dom";
+import FileUpload from "./FileUpload";
+import FileList from "./FileList";
+import "./Dashboard.css"; // Make sure this exists and includes custom styling
 
-const pinataApiKey = ""; // Replace with your API Key
-const pinataSecretApiKey = ""; // Replace with your Secret Key
 
+
+const pinataApiKey = import.meta.env.VITE_PINATA_API_KEY;
+const pinataSecretApiKey = import.meta.env.VITE_PINATA_SECRET_API_KEY;
+
+
+console.log(pinataApiKey, pinataSecretApiKey);
 const Dashboard = () => {
   const [username, setUsername] = useState("");
   const [files, setFiles] = useState([]);
@@ -18,14 +26,22 @@ const Dashboard = () => {
   const [newFolderName, setNewFolderName] = useState("");
   const [fileToUpload, setFileToUpload] = useState(null);
   const [shareEmail, setShareEmail] = useState("");
+  // New state to track active navigation item
+  const [activeNavItem, setActiveNavItem] = useState("my-files");
+  // State for storing favorites and deleted files
+  const [favorites, setFavorites] = useState([]);
+  const [trashedFiles, setTrashedFiles] = useState([]);
+  const [sharedFiles, setSharedFiles] = useState([]);
+  const [recentFiles, setRecentFiles] = useState([]);
 
   const navigate = useNavigate();
 
   // Initialize with mock data
   useEffect(() => {
-    // Get user info from localStorage or session
-    const user = JSON.parse(localStorage.getItem("user")) || { username: "User" };
-    setUsername(user.username);
+    // Get user info from localStorage or sessio
+
+
+
 
     // Load folders from localStorage if available
     const savedFolders = JSON.parse(localStorage.getItem("folders")) || [
@@ -37,17 +53,46 @@ const Dashboard = () => {
     // Load files from localStorage if available
     const savedFiles = JSON.parse(localStorage.getItem("files")) || [];
     setFiles(savedFiles);
+    
+    // Load favorites, trash and shared from localStorage if available
+    const savedFavorites = JSON.parse(localStorage.getItem("favorites")) || [];
+    setFavorites(savedFavorites);
+    
+    const savedTrash = JSON.parse(localStorage.getItem("trash")) || [];
+    setTrashedFiles(savedTrash);
+    
+    const savedShared = JSON.parse(localStorage.getItem("shared")) || [];
+    setSharedFiles(savedShared);
+    
+    // Set recent files based on modification date
+    updateRecentFiles(savedFiles);
   }, []);
+
+  // Update recent files whenever files change
+  useEffect(() => {
+    updateRecentFiles(files);
+  }, [files]);
+
+  // Update recent files
+  const updateRecentFiles = (filesList) => {
+    const sorted = [...filesList].sort((a, b) => 
+      new Date(b.modified) - new Date(a.modified)
+    ).slice(0, 10); // Get 10 most recent files
+    setRecentFiles(sorted);
+  };
 
   // Save files and folders to localStorage when they change
   useEffect(() => {
     localStorage.setItem("files", JSON.stringify(files));
     localStorage.setItem("folders", JSON.stringify(folders));
-  }, [files, folders]);
+    localStorage.setItem("favorites", JSON.stringify(favorites));
+    localStorage.setItem("trash", JSON.stringify(trashedFiles));
+    localStorage.setItem("shared", JSON.stringify(sharedFiles));
+  }, [files, folders, favorites, trashedFiles, sharedFiles]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
-    navigate("/login");
+    navigate("/home");
   };
 
   const handleFileChange = (event) => {
@@ -136,8 +181,16 @@ const Dashboard = () => {
   const handleShareFile = () => {
     if (!selectedFile || !shareEmail.trim()) return;
 
+    // Add file to shared files
+    const sharedFile = {
+      ...selectedFile,
+      sharedWith: shareEmail,
+      sharedDate: new Date().toISOString().split("T")[0]
+    };
+    
+    setSharedFiles([...sharedFiles, sharedFile]);
+    
     // In a real app, this would integrate with your blockchain contract to share access
-    // For now, just show a success message
     alert(`File ${selectedFile.name} shared with ${shareEmail}`);
     setShareEmail("");
     setSelectedFile(null);
@@ -145,10 +198,22 @@ const Dashboard = () => {
   };
 
   const handleDeleteFile = (file) => {
-    // In a production app, you might want to unpin from Pinata
-    // For now, just remove from the local list
-    const updatedFiles = files.filter((f) => f.id !== file.id);
-    setFiles(updatedFiles);
+    if (activeNavItem === "trash") {
+      // Permanently delete from trash
+      const updatedTrash = trashedFiles.filter((f) => f.id !== file.id);
+      setTrashedFiles(updatedTrash);
+    } else {
+      // Move to trash
+      const updatedFiles = files.filter((f) => f.id !== file.id);
+      setFiles(updatedFiles);
+      
+      // Remove from favorites if it's there
+      const updatedFavorites = favorites.filter((f) => f.id !== file.id);
+      setFavorites(updatedFavorites);
+      
+      // Add to trash
+      setTrashedFiles([...trashedFiles, {...file, deletedDate: new Date().toISOString().split("T")[0]}]);
+    }
   };
 
   const handleDeleteFolder = (folder) => {
@@ -170,22 +235,188 @@ const Dashboard = () => {
     setCurrentPath(newPath);
   };
 
+  // New functions for favorites
+  const addToFavorites = (file) => {
+    if (!favorites.some(f => f.id === file.id)) {
+      setFavorites([...favorites, file]);
+    }
+  };
+  
+  const removeFromFavorites = (file) => {
+    const updatedFavorites = favorites.filter(f => f.id !== file.id);
+    setFavorites(updatedFavorites);
+  };
+  
+  // Restore from trash
+  const restoreFile = (file) => {
+    // Remove from trash
+    const updatedTrash = trashedFiles.filter(f => f.id !== file.id);
+    setTrashedFiles(updatedTrash);
+    
+    // Add back to files
+    setFiles([...files, file]);
+  };
+
+  // Navigation click handler
+  const handleNavClick = (navItem) => {
+    setActiveNavItem(navItem);
+    
+    // Reset path if navigating away from My Files
+    if (navItem !== "my-files") {
+      setCurrentPath("/");
+    }
+  };
+
   // Calculate total storage used
   const totalStorageUsed = files.reduce((total, file) => {
     const sizeInMB = parseFloat(file.size);
     return total + (isNaN(sizeInMB) ? 0 : sizeInMB);
   }, 0);
 
+  // Determine which files to display based on active navigation item
+  const getDisplayContent = () => {
+    switch (activeNavItem) {
+      case "my-files":
+        return {
+          files: files.filter(file => file.path === currentPath),
+          folders: folders.filter(folder => folder.path === currentPath),
+          showFolders: true
+        };
+      case "shared":
+        return {
+          files: sharedFiles,
+          folders: [],
+          showFolders: false
+        };
+      case "recent":
+        return {
+          files: recentFiles,
+          folders: [],
+          showFolders: false
+        };
+      case "favorites":
+        return {
+          files: favorites,
+          folders: [],
+          showFolders: false
+        };
+      case "trash":
+        return {
+          files: trashedFiles,
+          folders: [],
+          showFolders: false
+        };
+      default:
+        return {
+          files: [],
+          folders: [],
+          showFolders: false
+        };
+    }
+  };
+
+  const { files: displayFiles, folders: displayFolders, showFolders } = getDisplayContent();
+
+  // Get action buttons based on context
+  const getFileActions = (file) => {
+    switch (activeNavItem) {
+      case "trash":
+        return (
+          <>
+            <button
+              className="item-action view"
+              onClick={() => handleViewFile(file)}
+            >
+              View
+            </button>
+            <button
+              className="item-action restore"
+              onClick={() => restoreFile(file)}
+            >
+              Restore
+            </button>
+            <button
+              className="item-action delete"
+              onClick={() => handleDeleteFile(file)}
+            >
+              Delete Permanently
+            </button>
+          </>
+        );
+      case "favorites":
+        return (
+          <>
+            <button
+              className="item-action view"
+              onClick={() => handleViewFile(file)}
+            >
+              View
+            </button>
+            <button
+              className="item-action share"
+              onClick={() => {
+                setSelectedFile(file);
+                setIsShareModalOpen(true);
+              }}
+            >
+              Share
+            </button>
+            <button
+              className="item-action remove"
+              onClick={() => removeFromFavorites(file)}
+            >
+              Remove Favorite
+            </button>
+          </>
+        );
+      default:
+        return (
+          <>
+            <button
+              className="item-action view"
+              onClick={() => handleViewFile(file)}
+            >
+              View
+            </button>
+            <button
+              className="item-action share"
+              onClick={() => {
+                setSelectedFile(file);
+                setIsShareModalOpen(true);
+              }}
+            >
+              Share
+            </button>
+            <button
+              className="item-action favorite"
+              onClick={() => addToFavorites(file)}
+              disabled={favorites.some(f => f.id === file.id)}
+            >
+              {favorites.some(f => f.id === file.id) ? "Favorited" : "Favorite"}
+            </button>
+            <button
+              className="item-action delete"
+              onClick={() => handleDeleteFile(file)}
+            >
+              Delete
+            </button>
+          </>
+        );
+    }
+  };
+
   return (
+    
     <div className="dashboard-container">
       <header className="dashboard-header">
-        <div className="logo">BlockStore</div>
-        <div className="user-info">
-          <span>Welcome, {username}</span>
-          <button className="logout-btn" onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
+        <div className="logo">BlockSafe</div>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2>Welcome, {username}!</h2>
+        <UserButton afterSignOutUrl="/" />
+        {/* <SignOutButton>
+          <button className="btn btn-outline-danger">Sign Out</button>
+        </SignOutButton> */}
+      </div>
       </header>
 
       <div className="dashboard-content">
@@ -203,11 +434,36 @@ const Dashboard = () => {
 
           <nav className="sidebar-nav">
             <ul>
-              <li className="active">My Files</li>
-              <li>Shared with Me</li>
-              <li>Recent</li>
-              <li>Favorites</li>
-              <li>Trash</li>
+              <li 
+                className={activeNavItem === "my-files" ? "active" : ""} 
+                onClick={() => handleNavClick("my-files")}
+              >
+                My Files
+              </li>
+              <li 
+                className={activeNavItem === "shared" ? "active" : ""} 
+                onClick={() => handleNavClick("shared")}
+              >
+                Shared with Me
+              </li>
+              <li 
+                className={activeNavItem === "recent" ? "active" : ""} 
+                onClick={() => handleNavClick("recent")}
+              >
+                Recent
+              </li>
+              <li 
+                className={activeNavItem === "favorites" ? "active" : ""} 
+                onClick={() => handleNavClick("favorites")}
+              >
+                Favorites
+              </li>
+              <li 
+                className={activeNavItem === "trash" ? "active" : ""} 
+                onClick={() => handleNavClick("trash")}
+              >
+                Trash
+              </li>
             </ul>
           </nav>
         </div>
@@ -215,63 +471,105 @@ const Dashboard = () => {
         <main className="content-area">
           <div className="actions-bar">
             <div className="path-navigation">
-              <button
-                className="nav-btn"
-                onClick={navigateUp}
-                disabled={currentPath === "/"}
-              >
-                &#8593; Up
-              </button>
-              <span className="current-path">{currentPath}</span>
+              {activeNavItem === "my-files" && (
+                <button
+                  className="nav-btn"
+                  onClick={navigateUp}
+                  disabled={currentPath === "/"}
+                >
+                  &#8593; Up
+                </button>
+              )}
+              <span className="current-path">
+                {activeNavItem === "my-files" ? currentPath : `/${activeNavItem.replace("-", " ")}`}
+              </span>
             </div>
             <div className="action-buttons">
-              <button
-                className="action-btn upload"
-                onClick={() => setIsUploadModalOpen(true)}
-              >
-                Upload File
-              </button>
-              <button
-                className="action-btn create-folder"
-                onClick={() => setIsCreateFolderModalOpen(true)}
-              >
-                Create Folder
-              </button>
+              {activeNavItem === "my-files" && (
+                <>
+                  <button
+                    className="action-btn upload"
+                    onClick={() => setIsUploadModalOpen(true)}
+                  >
+                    Upload File
+                  </button>
+                  <button
+                    className="action-btn create-folder"
+                    onClick={() => setIsCreateFolderModalOpen(true)}
+                  >
+                    Create Folder
+                  </button>
+                </>
+              )}
+              {activeNavItem === "trash" && (
+                <button
+                  className="action-btn empty-trash"
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to permanently delete all items in the trash?")) {
+                      setTrashedFiles([]);
+                    }
+                  }}
+                  disabled={trashedFiles.length === 0}
+                >
+                  Empty Trash
+                </button>
+              )}
             </div>
           </div>
+          {/* File Upload Section */}
+        <div style={{ marginTop: "30px" }}>
+          <FileUpload />
+        </div>
+
+        {/* File List Section */}
+        <div style={{ marginTop: "40px" }}>
+          <FileList />
+        </div>
 
           <div className="files-container">
-            <h2>Folders</h2>
-            {folders.filter((folder) => folder.path === currentPath).length > 0 ? (
-              <div className="folders-grid">
-                {folders
-                  .filter((folder) => folder.path === currentPath)
-                  .map((folder) => (
-                    <div className="folder-item" key={folder.id}>
-                      <div
-                        className="folder-icon"
-                        onClick={() => openFolder(folder)}
-                      >
-                        📁
-                      </div>
-                      <div className="folder-name">{folder.name}</div>
-                      <div className="folder-actions">
-                        <button
-                          className="item-action delete"
-                          onClick={() => handleDeleteFolder(folder)}
+            {showFolders && (
+              <>
+                <h2>Folders</h2>
+                {displayFolders.length > 0 ? (
+                  <div className="folders-grid">
+                    {displayFolders.map((folder) => (
+                      <div className="folder-item" key={folder.id}>
+                        <div
+                          className="folder-icon"
+                          onClick={() => openFolder(folder)}
                         >
-                          Delete
-                        </button>
+                          📁
+                        </div>
+                        <div className="folder-name">{folder.name}</div>
+                        <div className="folder-actions">
+                          <button
+                            className="item-action delete"
+                            onClick={() => handleDeleteFolder(folder)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <p className="no-items">No folders found</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="no-items">No folders found</p>
+                )}
+              </>
             )}
 
-            <h2>Files</h2>
-            {files.filter((file) => file.path === currentPath).length > 0 ? (
+            <h2>
+              {activeNavItem === "my-files" 
+                ? "Files" 
+                : activeNavItem === "shared" 
+                  ? "Files Shared With Me" 
+                  : activeNavItem === "recent" 
+                    ? "Recent Files" 
+                    : activeNavItem === "favorites" 
+                      ? "Favorite Files" 
+                      : "Deleted Files"}
+            </h2>
+            {displayFiles.length > 0 ? (
               <div className="files-table-container">
                 <table className="files-table">
                   <thead>
@@ -279,53 +577,35 @@ const Dashboard = () => {
                       <th>Name</th>
                       <th>Size</th>
                       <th>Modified</th>
+                      {activeNavItem === "shared" && <th>Shared By</th>}
+                      {activeNavItem === "trash" && <th>Deleted Date</th>}
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {files
-                      .filter((file) => file.path === currentPath)
-                      .map((file) => (
-                        <tr key={file.id}>
-                          <td className="file-name">
-                            <span className="file-icon">
-                              {file.type === "pdf" && "📄"}
-                              {file.type === "jpg" && "🖼️"}
-                              {file.type === "png" && "🖼️"}
-                              {file.type === "sol" && "📝"}
-                              {!["pdf", "jpg", "png", "sol"].includes(
-                                file.type
-                              ) && "📄"}
-                            </span>
-                            {file.name}
-                          </td>
-                          <td>{file.size}</td>
-                          <td>{file.modified}</td>
-                          <td className="file-actions">
-                            <button
-                              className="item-action view"
-                              onClick={() => handleViewFile(file)}
-                            >
-                              View
-                            </button>
-                            <button
-                              className="item-action share"
-                              onClick={() => {
-                                setSelectedFile(file);
-                                setIsShareModalOpen(true);
-                              }}
-                            >
-                              Share
-                            </button>
-                            <button
-                              className="item-action delete"
-                              onClick={() => handleDeleteFile(file)}
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                    {displayFiles.map((file) => (
+                      <tr key={file.id}>
+                        <td className="file-name">
+                          <span className="file-icon">
+                            {file.type === "pdf" && "📄"}
+                            {file.type === "jpg" && "🖼️"}
+                            {file.type === "png" && "🖼️"}
+                            {file.type === "sol" && "📝"}
+                            {!["pdf", "jpg", "png", "sol"].includes(
+                              file.type
+                            ) && "📄"}
+                          </span>
+                          {file.name}
+                        </td>
+                        <td>{file.size}</td>
+                        <td>{file.modified}</td>
+                        {activeNavItem === "shared" && <td>{file.sharedWith || "Unknown"}</td>}
+                        {activeNavItem === "trash" && <td>{file.deletedDate || "Unknown"}</td>}
+                        <td className="file-actions">
+                          {getFileActions(file)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -443,6 +723,13 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+
+
+
+
+
 
 
 
