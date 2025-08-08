@@ -30,7 +30,15 @@ const HomePage = () => {
 
   const toggleNav = () => setIsNavOpen(!isNavOpen);
 
-  if (!isLoaded) return <div className="loading-screen">Loading...</div>;
+  if (!isLoaded) {
+  return (
+    <div className="loading-screen">
+      <div className="loader"></div>
+      <p>Loading...</p>
+    </div>
+  );
+}
+
 
   return (
     <div className="homepage">

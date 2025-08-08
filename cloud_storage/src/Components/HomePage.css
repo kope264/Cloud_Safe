@@ -24,6 +24,40 @@
   box-sizing: border-box;
 }
 
+.loading-screen {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: #dadde0; /* nice dark background */
+  color: #1b1818;
+  font-family: Arial, sans-serif;
+}
+
+.loader {
+  width: 60px;
+  height: 60px;
+  border: 6px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #0a352c;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-screen p {
+  font-size: 1.2rem;
+  letter-spacing: 1px;
+  color: #1c2624;
+}
+
+
 html {
   font-size: 62.5%; /* 10px = 1rem */
   scroll-behavior: smooth;
@@ -1153,4 +1187,6 @@ button {
   .cta h2 {
     font-size: 3rem;
   }
+
+  
 }
